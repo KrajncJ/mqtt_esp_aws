@@ -87,19 +87,19 @@
         console.log(text);
     }
     function startPolling() {
-        var chart = new SmoothieChart({millisPerPixel:11,grid:{fillStyle:'#ffffff',strokeStyle:'#ffffff',borderVisible:false},labels:{fillStyle:'#000000'},maxValue:50,minValue:0});
+        var chart = new SmoothieChart({millisPerPixel:200,grid:{fillStyle:'#ffffff',strokeStyle:'#c7c6c5',verticalSections: 6, borderVisible:false},labels:{fillStyle:'#000000'}});
         chart.addTimeSeries(series, {lineWidth:2,strokeStyle:'#df744a',fillStyle:'#fff9ef'});
         chart.streamTo(document.getElementById("chartCanvas"), 500);
 
-        var chart1 = new SmoothieChart({millisPerPixel:11,grid:{fillStyle:'#ffffff',strokeStyle:'#ffffff',borderVisible:false},labels:{fillStyle:'#000000'},maxValue:110000,minValue:90000});
+        var chart1 = new SmoothieChart({millisPerPixel:200,grid:{fillStyle:'#ffffff',strokeStyle:'#c7c6c5',verticalSections: 6,borderVisible:false},labels:{fillStyle:'#000000'}});
         chart1.addTimeSeries(series1, {lineWidth:2,strokeStyle:'#03a9f4',fillStyle:'#f1f5fa'});
         chart1.streamTo(document.getElementById("chartCanvas1"), 500);
 
-        var chart2 = new SmoothieChart({millisPerPixel:11,grid:{fillStyle:'#ffffff',strokeStyle:'#ffffff',borderVisible:false},labels:{fillStyle:'#000000'},maxValue:50,minValue:0});
+        var chart2 = new SmoothieChart({millisPerPixel:200,grid:{fillStyle:'#ffffff',strokeStyle:'#c7c6c5',verticalSections: 6, borderVisible:false},labels:{fillStyle:'#000000'}});
         chart2.addTimeSeries(series2, {lineWidth:2,strokeStyle:'#df744a',fillStyle:'#fff9ef'});
         chart2.streamTo(document.getElementById("chartCanvas2"), 500);
 
-        var chart3 = new SmoothieChart({millisPerPixel:11,grid:{fillStyle:'#ffffff',strokeStyle:'#ffffff',borderVisible:false},labels:{fillStyle:'#000000'},maxValue:110000,minValue:90000});
+        var chart3 = new SmoothieChart({millisPerPixel:200,grid:{fillStyle:'#ffffff',strokeStyle:'#c7c6c5',verticalSections: 6,borderVisible:false},labels:{fillStyle:'#000000'}});
         chart3.addTimeSeries(series3, {lineWidth:2,strokeStyle:'#03a9f4',fillStyle:'#f1f5fa'});
         chart3.streamTo(document.getElementById("chartCanvas3"), 500);
 

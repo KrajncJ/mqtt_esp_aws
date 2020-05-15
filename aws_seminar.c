@@ -18,9 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Put this values into wifi config file
-#define WIFI_NAME "SteinsGate;"
-#define WIFI_PASS "Danganronpa"
+
 
 // MQTT config // 
 #define mqtt_server "a2zttsshc1wnh8.iot.eu-west-1.amazonaws.com"
@@ -36,6 +34,7 @@ const uint8_t sda_pin = 12;
 
 // Mesure after each interval
 const int MESURE_INTERVAL_MS = 20000; // Change this value if needed
+int MESURE_ACTIVE = 1;
 static QueueHandle_t xQueue; // Queue for measures
 static bool MQTT_connection_established = false;
 static bool bmp280_init_successful = false;
@@ -48,6 +47,10 @@ char mqtt_subscribe_topic[100];
 // SSL variables
 static int ssl_invalid;
 static SSLConnection *ssl_connection;
+
+#define PCF_ADDRESS	0x38
+#define button1		0x20
+#define led1 0xfe
 
 // Measures struct
 struct Measure {
@@ -571,48 +574,85 @@ static void bmp280_task_forced(void *pvParameters)
 
         // Measure loop
         while(1) {
-        	printf("Messuring... \n");
         	
+        	if (MESURE_ACTIVE) {
 
-            // Force measure
-            if (!bmp280_force_measurement(&bmp280_dev)) {
-                printf("Force measure init failed \n");
-	    	vTaskDelay(MESURE_INTERVAL_MS / portTICK_PERIOD_MS);
-                break;
-            }
-            
-            // Wait for measurement
-            while (bmp280_is_measuring(&bmp280_dev)) { vTaskDelay(500 / portTICK_PERIOD_MS); };
-
-            if (!bmp280_read_float(&bmp280_dev, &temperature, &pressure, NULL)) {
-                printf("Reading temp failed \n");
-	    	vTaskDelay(MESURE_INTERVAL_MS / portTICK_PERIOD_MS);
-                break;
-            }
-            
-            printf("Pushing temp to queue.. \n");
-            
-            struct Measure measure1;       
-            measure1.temperature = temperature;
-            measure1.air_pressure = pressure;
-            
-            
-            xQueueSend(xQueue, &measure1, 0 );
+				printf("Messuring... \n");
+				
+	
+				// Force measure
+				if (!bmp280_force_measurement(&bmp280_dev)) {
+					printf("Force measure init failed \n");
+				vTaskDelay(MESURE_INTERVAL_MS / portTICK_PERIOD_MS);
+					break;
+				}
+				
+				// Wait for measurement
+				while (bmp280_is_measuring(&bmp280_dev)) { vTaskDelay(500 / portTICK_PERIOD_MS); };
+	
+				if (!bmp280_read_float(&bmp280_dev, &temperature, &pressure, NULL)) {
+					printf("Reading temp failed \n");
+				vTaskDelay(MESURE_INTERVAL_MS / portTICK_PERIOD_MS);
+					break;
+				}
+				
+				printf("Pushing temp to queue.. \n");
+				
+				struct Measure measure1;       
+				measure1.temperature = temperature;
+				measure1.air_pressure = pressure;
+				
+				
+				xQueueSend(xQueue, &measure1, 0 );
+        	} else {
+        		printf("Mesures not active!");
+        	}
             
      
             // Delay measures
-	    vTaskDelay(MESURE_INTERVAL_MS / portTICK_PERIOD_MS);
+	        vTaskDelay(MESURE_INTERVAL_MS / portTICK_PERIOD_MS);
         }
     }
 }
 
+static void check_buttons(void *pvParameters) {
+	uint8_t pcf_byte;
 
+	// Check initial state.
+	if (MESURE_ACTIVE) {
+		pcf_byte = led1;
+		i2c_slave_write(i2c_bus, PCF_ADDRESS, NULL, &pcf_byte, 1);
+	}
+	
+	
+	while(1) {
+		
+		// Toggle mesure state based on buttons
+		i2c_slave_read(i2c_bus, PCF_ADDRESS, NULL, &pcf_byte, 1);
+		
+		if ((pcf_byte & button1) == 0) {
+			MESURE_ACTIVE ^= 1;	
+			if (MESURE_ACTIVE) {
+				pcf_byte = led1;
+				printf("ACTIVE \n");
+				i2c_slave_write(i2c_bus, PCF_ADDRESS, NULL, &pcf_byte, 1);
+			} else {
+				printf("INACTIVE \n");
+				pcf_byte = 0xff;
+				i2c_slave_write(i2c_bus, PCF_ADDRESS, NULL, &pcf_byte, 1);
+			}
+		}
+		
+		vTaskDelay(150 / portTICK_PERIOD_MS);
+		
+	}
+}
 
 void initialize_wifi_connection() {
 
     printf("Establishing WI-FI connection ... ");
 
-    struct sdk_station_config config = { .ssid = WIFI_NAME, .password =
+    struct sdk_station_config config = { .ssid = WIFI_SSID, .password =
     		WIFI_PASS, };
     sdk_wifi_station_set_auto_connect(1);
 	sdk_wifi_set_opmode(STATION_MODE);
@@ -661,5 +701,6 @@ void user_init(void) {
     xTaskCreate(&bmp280_task_forced, "bmp280_task_forced", 1048, NULL, 2, NULL);
     xTaskCreate(&mqtt_task, "mqtt_task", 2048, NULL, 2, NULL);
     xTaskCreate(&httpd_task, "httpd_task", 128, NULL, 3, NULL);
-
+    xTaskCreate(&check_buttons, "check_buttons", 128, NULL, 2, NULL);
+    
 }
