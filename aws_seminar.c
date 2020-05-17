@@ -58,6 +58,7 @@ struct Measure {
    float  air_pressure;
 };
 
+// Struct to store device MAC and last measurement
 struct Device {
    bool initialized;
    char device_mac[13];
@@ -66,6 +67,8 @@ struct Device {
    float air_pressure;
 };
 
+
+// Array of devices which stores device mac and last measurement
 static struct Device ConnectedDevices[2];
 
 enum {
@@ -128,16 +131,16 @@ char *websocket_cgi_handler(int iIndex, int iNumParams, char *pcParam[], char *p
 
 void websocket_task_measurements(void *pvParameter)
 {
-    printf("----------------------------websocket_task_measurements-------------------------\n");
+    printf("--\n");
     
     struct tcp_pcb *pcb = (struct tcp_pcb *) pvParameter;
 
     for (;;) {
         if (pcb == NULL || pcb->state != ESTABLISHED) {
-            printf("-------------------------Connection closed, deleting task\n");
+            printf("-c\n");
             break;
         }
-	printf("----------------------------websocket_task_measurements-------------------------\n");
+	printf("-\n");
 	for(int i = 0; i < 2 ; i++){
 		if(!ConnectedDevices[i].initialized)
 			break;
@@ -153,7 +156,7 @@ void websocket_task_measurements(void *pvParameter)
         /* Generate response in JSON format */
         
 
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
 
     vTaskDelete(NULL);
@@ -166,11 +169,11 @@ void websocket_task(void *pvParameter)
 
     for (;;) {
         if (pcb == NULL || pcb->state != ESTABLISHED) {
-            printf("++++++++++++++++++++++++++Connection closed, deleting task\n");
+            printf("+ ---\n");
             break;
         }
 
-	printf("++++++++++++++++++++++++++++++websocket_task_measurements+++++++++++++++++++++++++++++++\n");
+	printf("+\n");
         int uptime = xTaskGetTickCount() * portTICK_PERIOD_MS / 1000;
         int heap = (int) xPortGetFreeHeapSize();
         int led = !gpio_read(LED_PIN);
@@ -181,8 +184,11 @@ void websocket_task(void *pvParameter)
                 "{\"uptime\" : \"%d\","
                 " \"heap\" : \"%d\","
                 " \"led\" : \"%d\"}", uptime, heap, led);
+	taskENTER_CRITICAL();
         if (len < sizeof (response))
             websocket_write(pcb, (unsigned char *) response, len, WS_TEXT_MODE);
+
+	taskEXIT_CRITICAL();
 
         vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
@@ -249,9 +255,8 @@ void websocket_open_cb(struct tcp_pcb *pcb, const char *uri)
     printf("WS URI: %s\n", uri);
     if (!strcmp(uri, "/stream")) {
         printf("request for streaming\n");
-        //xTaskCreate(&websocket_task, "websocket_task", 256, (void *) pcb, 2, NULL);
-        //xTaskCreate(&websocket_task_measurements, "websocket_task_measurements", 256, (void *) pcb, 3, NULL);
-        //printf("request for streaming executed\n");
+        xTaskCreate(&websocket_task, "websocket_task", 256, (void *) pcb, 2, NULL);
+        //xTaskCreate(&websocket_task_measurements, "websocket_task_measurements", 256, (void *) pcb, 2, NULL);
     }
 }
 
@@ -531,9 +536,11 @@ static void mqtt_task(void *pvParameters) {
                 	printf("Successfully published \n");
                 }
             }
-
-            ret = mqtt_yield(&client, 1000);
-            vTaskDelay(2000 / portTICK_PERIOD_MS);
+		
+            printf("a\n");
+            ret = mqtt_yield(&client, 100);
+            printf("b\n");
+            vTaskDelay(5000 / portTICK_PERIOD_MS);
             if (ret == MQTT_DISCONNECTED)
                 break;
         }
@@ -583,7 +590,7 @@ static void bmp280_task_forced(void *pvParameters)
 				// Force measure
 				if (!bmp280_force_measurement(&bmp280_dev)) {
 					printf("Force measure init failed \n");
-				vTaskDelay(MESURE_INTERVAL_MS / portTICK_PERIOD_MS);
+					vTaskDelay(MESURE_INTERVAL_MS / portTICK_PERIOD_MS);
 					break;
 				}
 				
@@ -592,7 +599,7 @@ static void bmp280_task_forced(void *pvParameters)
 	
 				if (!bmp280_read_float(&bmp280_dev, &temperature, &pressure, NULL)) {
 					printf("Reading temp failed \n");
-				vTaskDelay(MESURE_INTERVAL_MS / portTICK_PERIOD_MS);
+					vTaskDelay(MESURE_INTERVAL_MS / portTICK_PERIOD_MS);
 					break;
 				}
 				
@@ -698,9 +705,9 @@ void user_init(void) {
     gpio_write(LED_PIN, true);
     
     /* initialize tasks */
-    xTaskCreate(&bmp280_task_forced, "bmp280_task_forced", 1048, NULL, 2, NULL);
-    xTaskCreate(&mqtt_task, "mqtt_task", 2048, NULL, 2, NULL);
-    xTaskCreate(&httpd_task, "httpd_task", 128, NULL, 3, NULL);
+    xTaskCreate(&bmp280_task_forced, "bmp280_task_forced", 512, NULL, 2, NULL);
+    xTaskCreate(&mqtt_task, "mqtt_task", 1600, NULL, 2, NULL);
+    xTaskCreate(&httpd_task, "httpd_task", 128, NULL, 2, NULL);
     xTaskCreate(&check_buttons, "check_buttons", 128, NULL, 2, NULL);
     
 }
